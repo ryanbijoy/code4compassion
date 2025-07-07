@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Award, TrendingUp, Users, Leaf, Heart, Globe, Building, Mail, CheckCircle, AlertCircle } from 'lucide-react';
+import { institutionService } from '../lib/supabase';
 
 const Home: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
@@ -8,6 +9,7 @@ const Home: React.FC = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isDuplicate, setIsDuplicate] = useState(false);
 
   const stats = [
     { label: 'Institutions Scored', value: '1,247', icon: Award },
@@ -29,32 +31,45 @@ const Home: React.FC = () => {
 
     setIsSubmitting(true);
     setError('');
+    setIsDuplicate(false);
 
     try {
-      const response = await fetch('https://code4compassionmumbai.app.n8n.cloud/webhook-test/form-data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          institutionName: companyName.trim(),
-          email: email.trim() || null,
-          submittedAt: new Date().toISOString(),
-        }),
-      });
+      // Submit to database
+      const submission = await institutionService.submitInstitution(
+        companyName.trim(),
+        email.trim() || undefined
+      );
 
-      if (response.ok) {
-        setIsSubmitted(true);
-        setTimeout(() => {
-          setIsSubmitted(false);
-          setCompanyName('');
-          setEmail('');
-        }, 5000);
-      } else {
-        throw new Error('Failed to submit');
+      // Also send to n8n webhook for processing
+      try {
+        await fetch('https://code4compassionmumbai.app.n8n.cloud/webhook-test/form-data', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            institutionName: companyName.trim(),
+            email: email.trim() || null,
+            submissionId: submission.id,
+            submittedAt: new Date().toISOString(),
+          }),
+        });
+      } catch (webhookError) {
+        console.warn('Webhook failed, but database submission succeeded:', webhookError);
       }
-    } catch (err) {
-      setError('Failed to submit institution. Please try again.');
+
+      setIsSubmitted(true);
+      setIsDuplicate(submission.status === 'duplicate');
+      
+      setTimeout(() => {
+        setIsSubmitted(false);
+        setCompanyName('');
+        setEmail('');
+        setIsDuplicate(false);
+      }, 8000);
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit institution. Please try again.');
       console.error('Submission error:', err);
     } finally {
       setIsSubmitting(false);
@@ -198,14 +213,33 @@ const Home: React.FC = () => {
             ) : (
               <div className="text-center py-8">
                 <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600" />
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Submission Received!</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  {isDuplicate ? 'Institution Already Exists!' : 'Submission Received!'}
+                </h3>
                 <p className="text-gray-600 mb-4">
-                  Thank you for submitting <strong>{companyName}</strong>. We'll review and score this institution soon.
+                  {isDuplicate ? (
+                    <>
+                      <strong>{companyName}</strong> is already in our database. You can view its current score in the dashboard.
+                    </>
+                  ) : (
+                    <>
+                      Thank you for submitting <strong>{companyName}</strong>. We'll review and score this institution soon.
+                    </>
+                  )}
                 </p>
                 {email && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 mb-4">
                     We'll send AI-summarized updates to <strong>{email}</strong> when available.
                   </p>
+                )}
+                {isDuplicate && (
+                  <Link
+                    to="/dashboard"
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    View in Dashboard
+                    <ArrowRight className="ml-2 w-4 h-4" />
+                  </Link>
                 )}
               </div>
             )}

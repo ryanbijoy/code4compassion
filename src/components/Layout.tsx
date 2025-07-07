@@ -28,7 +28,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="flex items-center justify-center w-8 h-8 bg-green-600 rounded-lg">
                   <Leaf className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-900">EcoImpact</span>
+                <span className="text-xl font-bold text-gray-900">EcoScore</span>
               </Link>
             </div>
 
@@ -93,7 +93,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="flex items-center justify-center w-8 h-8 bg-green-600 rounded-lg">
                   <Leaf className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold">EcoImpact</span>
+                <span className="text-xl font-bold">EcoScore</span>
               </div>
               <p className="text-gray-400">
                 Promoting transparency and accountability in animal welfare and environmental practices across institutions.
@@ -117,7 +117,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div>
               <h3 className="text-lg font-semibold mb-4">Contact</h3>
               <p className="text-gray-400 mb-2">
-                Email: info@EcoImpact.org
+                Email: info@ecoscore.org
               </p>
               <p className="text-gray-400">
                 Join our mission for a more sustainable and compassionate world.
@@ -125,7 +125,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 EcoImpact. All rights reserved.</p>
+            <p>&copy; 2025 EcoScore. All rights reserved.</p>
           </div>
         </div>
       </footer>
