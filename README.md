@@ -1,5 +1,9 @@
 # EcoScore - Local Development Setup
 
+
+https://github.com/user-attachments/assets/1a9ab154-6d20-404c-a688-edcabdc05a66
+
+
 ## Prerequisites
 
 Make sure you have the following installed on your machine:
