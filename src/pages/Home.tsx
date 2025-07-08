@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Award, TrendingUp, Users, Leaf, Heart, Globe, Building, Mail, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowRight, Award, TrendingUp, Users, Leaf, Heart, Globe, Building, Mail, CheckCircle, AlertCircle, Loader, RefreshCw } from 'lucide-react';
 import { institutionService } from '../lib/supabase';
+import AnalysisDisplay from '../components/AnalysisDisplay';
+import DetailedAnalysisDisplay from '../components/DetailedAnalysisDisplay';
 
 const Home: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
@@ -10,6 +12,11 @@ const Home: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isDuplicate, setIsDuplicate] = useState(false);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [detailedAnalysis, setDetailedAnalysis] = useState<any>(null);
+  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
 
   const stats = [
     { label: 'Institutions Scored', value: '1,247', icon: Award },
@@ -25,6 +32,77 @@ const Home: React.FC = () => {
     improvements: ['Sustainable campus initiatives', 'Animal welfare policies', 'Green energy adoption'],
   };
 
+  // Check for analysis results periodically after submission
+  useEffect(() => {
+    if (submissionId && isSubmitted && !isDuplicate) {
+      const checkForAnalysis = async () => {
+        try {
+          setIsLoadingAnalysis(true);
+          
+          // Check for detailed analysis first (priority)
+          const detailedAnalysisResult = await institutionService.getDetailedAnalysisBySubmissionId(submissionId);
+          if (detailedAnalysisResult) {
+            setDetailedAnalysis(detailedAnalysisResult);
+            setIsLoadingAnalysis(false);
+            return;
+          }
+
+          // Fallback to basic analysis
+          const analysisResult = await institutionService.getAnalysisBySubmissionId(submissionId);
+          if (analysisResult) {
+            setAnalysis(analysisResult);
+            setIsLoadingAnalysis(false);
+          }
+        } catch (err) {
+          console.error('Error checking for analysis:', err);
+        }
+      };
+
+      // Check immediately
+      checkForAnalysis();
+
+      // Then check every 5 seconds for up to 10 minutes
+      const interval = setInterval(checkForAnalysis, 5000);
+      const timeout = setTimeout(() => {
+        clearInterval(interval);
+        setIsLoadingAnalysis(false);
+        if (!analysis && !detailedAnalysis) {
+          setAnalysisError('Analysis is taking longer than expected. Please check back later or refresh the page.');
+        }
+      }, 600000); // 10 minutes
+
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
+    }
+  }, [submissionId, isSubmitted, isDuplicate, analysis, detailedAnalysis]);
+
+  // Check for existing analysis if duplicate
+  useEffect(() => {
+    if (isDuplicate && companyName) {
+      const checkExistingAnalysis = async () => {
+        try {
+          // Check for detailed analysis first
+          const existingDetailedAnalysis = await institutionService.getDetailedAnalysisByInstitutionName(companyName);
+          if (existingDetailedAnalysis) {
+            setDetailedAnalysis(existingDetailedAnalysis);
+            return;
+          }
+
+          // Fallback to basic analysis
+          const existingAnalysis = await institutionService.getAnalysisByInstitutionName(companyName);
+          if (existingAnalysis) {
+            setAnalysis(existingAnalysis);
+          }
+        } catch (err) {
+          console.error('Error checking existing analysis:', err);
+        }
+      };
+      checkExistingAnalysis();
+    }
+  }, [isDuplicate, companyName]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!companyName.trim()) return;
@@ -32,6 +110,9 @@ const Home: React.FC = () => {
     setIsSubmitting(true);
     setError('');
     setIsDuplicate(false);
+    setAnalysis(null);
+    setDetailedAnalysis(null);
+    setAnalysisError('');
 
     try {
       // Submit to database
@@ -39,6 +120,8 @@ const Home: React.FC = () => {
         companyName.trim(),
         email.trim() || undefined
       );
+
+      setSubmissionId(submission.id);
 
       // Also send to n8n webhook for processing
       try {
@@ -60,19 +143,52 @@ const Home: React.FC = () => {
 
       setIsSubmitted(true);
       setIsDuplicate(submission.status === 'duplicate');
-      
-      setTimeout(() => {
-        setIsSubmitted(false);
-        setCompanyName('');
-        setEmail('');
-        setIsDuplicate(false);
-      }, 8000);
 
     } catch (err: any) {
       setError(err.message || 'Failed to submit institution. Please try again.');
       console.error('Submission error:', err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleNewSubmission = () => {
+    setIsSubmitted(false);
+    setCompanyName('');
+    setEmail('');
+    setIsDuplicate(false);
+    setSubmissionId(null);
+    setAnalysis(null);
+    setDetailedAnalysis(null);
+    setAnalysisError('');
+    setIsLoadingAnalysis(false);
+  };
+
+  const handleRefreshAnalysis = async () => {
+    if (submissionId) {
+      try {
+        setIsLoadingAnalysis(true);
+        setAnalysisError('');
+        
+        // Check for detailed analysis first
+        const detailedAnalysisResult = await institutionService.getDetailedAnalysisBySubmissionId(submissionId);
+        if (detailedAnalysisResult) {
+          setDetailedAnalysis(detailedAnalysisResult);
+          return;
+        }
+
+        // Fallback to basic analysis
+        const analysisResult = await institutionService.getAnalysisBySubmissionId(submissionId);
+        if (analysisResult) {
+          setAnalysis(analysisResult);
+        } else {
+          setAnalysisError('Analysis not ready yet. Please try again in a few moments.');
+        }
+      } catch (err) {
+        setAnalysisError('Failed to load analysis. Please try again.');
+      } finally {
+        setIsLoadingAnalysis(false);
+      }
     }
   };
 
@@ -232,20 +348,183 @@ const Home: React.FC = () => {
                     We'll send AI-summarized updates to <strong>{email}</strong> when available.
                   </p>
                 )}
-                {isDuplicate && (
-                  <Link
-                    to="/dashboard"
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  {isDuplicate && (
+                    <Link
+                      to="/dashboard"
+                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      View in Dashboard
+                      <ArrowRight className="ml-2 w-4 h-4" />
+                    </Link>
+                  )}
+                  <button
+                    onClick={handleNewSubmission}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    View in Dashboard
-                    <ArrowRight className="ml-2 w-4 h-4" />
-                  </Link>
-                )}
+                    Submit Another Institution
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
       </section>
+
+      {/* Analysis Results Section */}
+      {isSubmitted && (
+        <section className="py-16 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Loading State */}
+            {isLoadingAnalysis && !analysis && !detailedAnalysis && (
+              <div className="text-center py-12">
+                <div className="flex items-center justify-center mb-6">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin"></div>
+                    <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                  </div>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                  AI Analysis in Progress
+                </h3>
+                <p className="text-lg text-gray-600 mb-6 max-w-2xl mx-auto">
+                  Our advanced AI system is analyzing <strong>{companyName}</strong>'s policies, sustainability reports, and public information. A detailed Summary has been sent to the provided Email.
+                  For detailed analysis and visual representation please wait 2-3 minutes.
+                </p>
+                
+                <div className="bg-white rounded-lg p-6 max-w-md mx-auto shadow-sm">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Gathering data sources...</span>
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Processing environmental policies...</span>
+                      <Loader className="w-5 h-5 animate-spin text-blue-600" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Analyzing animal welfare practices...</span>
+                      <div className="w-5 h-5 border-2 border-gray-300 rounded-full"></div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Generating comprehensive report...</span>
+                      <div className="w-5 h-5 border-2 border-gray-300 rounded-full"></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <p className="text-sm text-gray-500 mt-6">
+                  Please keep this page open. Results will appear automatically when ready.
+                </p>
+              </div>
+            )}
+
+            {/* Error State */}
+            {analysisError && !analysis && !detailedAnalysis && (
+              <div className="text-center py-12">
+                <AlertCircle className="w-16 h-16 mx-auto mb-4 text-orange-500" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Analysis Status Update</h3>
+                <p className="text-gray-600 mb-6 max-w-2xl mx-auto">{analysisError}</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={handleRefreshAnalysis}
+                    className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <RefreshCw className="w-5 h-5 mr-2" />
+                    Check for Results
+                  </button>
+                  <Link
+                    to="/dashboard"
+                    className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Browse Other Institutions
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Detailed Analysis Results */}
+            {detailedAnalysis && (
+              <div className="space-y-8">
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="flex items-center space-x-2 bg-green-100 px-4 py-2 rounded-full">
+                      <CheckCircle className="w-6 h-6 text-green-600" />
+                      <span className="text-green-800 font-semibold">Analysis Complete</span>
+                    </div>
+                  </div>
+                  <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                    Comprehensive Analysis Results
+                  </h2>
+                  <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                    Here's our detailed AI-powered evaluation of <strong>{companyName}</strong>'s environmental impact and animal welfare practices.
+                  </p>
+                </div>
+                <DetailedAnalysisDisplay analysis={detailedAnalysis} />
+                
+                {/* Action Buttons */}
+                <div className="text-center pt-8">
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button
+                      onClick={handleNewSubmission}
+                      className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Submit Another Institution
+                    </button>
+                    <Link
+                      to="/dashboard"
+                      className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      View All Institutions
+                      <ArrowRight className="ml-2 w-4 h-4" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Basic Analysis Results (Fallback) */}
+            {analysis && !detailedAnalysis && (
+              <div className="space-y-8">
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="flex items-center space-x-2 bg-blue-100 px-4 py-2 rounded-full">
+                      <CheckCircle className="w-6 h-6 text-blue-600" />
+                      <span className="text-blue-800 font-semibold">Analysis Complete</span>
+                    </div>
+                  </div>
+                  <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                    Analysis Results
+                  </h2>
+                  <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                    Here's what our AI analysis found about <strong>{companyName}</strong>'s policies and practices.
+                  </p>
+                </div>
+                <AnalysisDisplay analysis={analysis} institutionName={companyName} />
+                
+                {/* Action Buttons */}
+                <div className="text-center pt-8">
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button
+                      onClick={handleNewSubmission}
+                      className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Submit Another Institution
+                    </button>
+                    <Link
+                      to="/dashboard"
+                      className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      View All Institutions
+                      <ArrowRight className="ml-2 w-4 h-4" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Why It Matters Section */}
       <section className="py-16 bg-white">

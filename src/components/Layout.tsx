@@ -28,7 +28,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="flex items-center justify-center w-8 h-8 bg-green-600 rounded-lg">
                   <Leaf className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-900">EcoScore</span>
+                <span className="text-xl font-bold text-gray-900">EcoImpact</span>
               </Link>
             </div>
 
@@ -93,7 +93,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="flex items-center justify-center w-8 h-8 bg-green-600 rounded-lg">
                   <Leaf className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold">EcoScore</span>
+                <span className="text-xl font-bold">EcoImpact</span>
               </div>
               <p className="text-gray-400">
                 Promoting transparency and accountability in animal welfare and environmental practices across institutions.
