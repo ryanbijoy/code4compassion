@@ -20,50 +20,13 @@ cd ecoscore-app
 npm install
 ```
 
-## 3. Set Up Supabase Database
-
-### Option A: Use Existing Supabase Project
-1. Go to [supabase.com](https://supabase.com) and sign in
-2. Create a new project or use an existing one
-3. Go to Settings → API to get your credentials
-
-### Option B: Run Supabase Locally (Advanced)
-```bash
-# Install Supabase CLI
-npm install -g supabase
-
-# Initialize Supabase in your project
-supabase init
-
-# Start local Supabase
-supabase start
-```
-
 ## 4. Configure Environment Variables
 
 Create a `.env` file in the root directory:
 
 ```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-**To get these values:**
-1. Go to your Supabase project dashboard
-2. Navigate to Settings → API
-3. Copy the "Project URL" and "anon public" key
-
-## 5. Set Up Database Schema
-
-Run the migration to create the required tables:
-
-```bash
-# If using Supabase CLI locally
-supabase db reset
-
-# If using hosted Supabase, run the SQL manually:
-# Go to your Supabase dashboard → SQL Editor
-# Copy and paste the contents of supabase/migrations/20250707035621_shy_bread.sql
+VITE_SUPABASE_URL=https://awvnaklolkreqdqpjjzs.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3dm5ha2xvbGtyZXFkcXBqanpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4NjQxODUsImV4cCI6MjA2NzQ0MDE4NX0.msj6IiQZqQjZ01D3rRrVYNcC6dtpfZu8teXEk7pa2yg
 ```
 
 ## 6. Start Development Server
@@ -159,19 +122,3 @@ The app integrates with your n8n workflow at:
 `https://code4compassionmumbai.app.n8n.cloud/webhook-test/form-data`
 
 Submissions are sent to both the database and the webhook for processing.
-
-## Next Steps
-
-1. **Customize Styling**: Modify Tailwind classes to match your brand
-2. **Add Authentication**: Implement user accounts if needed
-3. **Enhance Scoring**: Connect with your AI scoring pipeline
-4. **Add Analytics**: Track user engagement and submissions
-5. **Deploy**: Use Vercel, Netlify, or similar for hosting
-
-## Support
-
-If you encounter any issues:
-1. Check the browser console for errors
-2. Verify your environment variables
-3. Ensure your Supabase project is properly configured
-4. Test the database connection in the Supabase dashboard
